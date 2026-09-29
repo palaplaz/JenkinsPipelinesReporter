@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import result_badge, jenkins_link %}
+{% block title %}{{ build.job_full_name | job_name }} #{{ build.build_number }}{% endblock %}
+{% block content %}
+<p><a href="/builds">← All builds</a></p>
+<h1>{{ build.job_full_name | job_name }} <span class="muted">#{{ build.build_number }}</span> {{ result_badge(build.result) }}</h1>
+
+<div class="columns">
+  <section class="card">
+    <h2>Build</h2>
+    <dl class="props">
+      <dt>Started</dt><dd>{{ build.started_at_ms | ms }}</dd>
+      <dt>Result</dt><dd>{{ build.result }}</dd>
+      <dt>FORCE_PASS value</dt><dd><code>{{ build.param_value }}</code></dd>
+      <dt>Reason</dt>
+      <dd class="reason-full">{% if reason %}{{ reason }}{% else %}<span class="muted">none given ({{ reason_parameter }} not set)</span>{% endif %}</dd>
+      <dt>Author</dt>
+      <dd>{{ build.author_name }}{% if build.author_id != 'SYSTEM/AUTOMATED' %} <span class="muted">({{ build.author_id }})</span>{% endif %}</dd>
+      <dt>Cause</dt><dd>{{ build.cause or "–" }}</dd>
+      <dt>Jenkins</dt><dd>{{ jenkins_link(build.url) }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Collection</h2>
+    <dl class="props">
+      <dt>First seen</dt>
+      <dd><a href="/builds?run={{ build.first_seen_run_id }}">run #{{ build.first_seen_run_id }}</a> · {{ build.first_seen_at | iso }}</dd>
+      <dt>Last updated</dt>
+      <dd>run #{{ build.last_updated_run_id }} · {{ build.last_updated_at | iso }}</dd>
+    </dl>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Parameters <span class="muted">({{ build.parameters | length }})</span></h2>
+  {% if build.parameters %}
+  <table class="params">
+    <thead><tr><th>Name</th><th>Value</th></tr></thead>
+    <tbody>
+    {% for name, value in build.parameters.items() %}
+      <tr><td><code>{{ name }}</code></td><td>{% if value is none %}<span class="muted">null</span>{% else %}<code class="value">{{ value }}</code>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No parameters recorded.</p>{% endif %}
+</section>
+{% endblock %}

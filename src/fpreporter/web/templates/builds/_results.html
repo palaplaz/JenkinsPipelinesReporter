@@ -1,0 +1,39 @@
+{% from "_macros.html" import result_badge, jenkins_link, sort_th %}
+<p class="muted">{{ "{:,}".format(page.total) }} build{{ "" if page.total == 1 else "s" }}</p>
+{% if page.rows %}
+<table class="builds">
+  <thead>
+    <tr>
+      {% for key, label, default_desc, cls in [("started", "Started", true, ""), ("job", "Job", false, ""), ("number", "#", true, "num"), ("result", "Result", false, ""), ("author", "Author", false, "")] %}
+        {{ sort_th(key, label, f.sort, f.desc, "/builds" ~ qs(f.to_query(sort=key, desc=((not f.desc) if f.sort == key else default_desc), page=1)), cls) }}
+      {% endfor %}
+      <th>Reason</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for b in page.rows %}
+    <tr>
+      <td class="nowrap">{{ b.started_at_ms | ms }}</td>
+      <td>{{ b.job_full_name | job_name }}</td>
+      <td class="num"><a href="{{ build_path(b.job_full_name, b.build_number) }}">{{ b.build_number }}</a></td>
+      <td>{{ result_badge(b.result) }}</td>
+      <td {% if b.cause %}title="{{ b.cause }}"{% endif %}>{{ b.author_name }}{% if b.author_id != 'SYSTEM/AUTOMATED' %} <span class="muted">{{ b.author_id }}</span>{% endif %}</td>
+      <td class="reason">
+        {% if b.reason %}<span class="clamp" title="{{ b.reason }}">{{ b.reason }}</span>{% else %}<span class="muted">none given</span>{% endif %}
+      </td>
+      <td class="nowrap">{{ jenkins_link(b.url, "Jenkins") }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if page.pages > 1 %}
+<nav class="pager">
+  {% if page.page > 1 %}<a href="/builds{{ qs(f.to_query(page=page.page - 1)) }}">← Previous</a>{% endif %}
+  <span>Page {{ page.page }} of {{ page.pages }}</span>
+  {% if page.page < page.pages %}<a href="/builds{{ qs(f.to_query(page=page.page + 1)) }}">Next →</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<p class="empty">No force-pass builds match these filters.</p>
+{% endif %}

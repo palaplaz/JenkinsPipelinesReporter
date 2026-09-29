@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · FORCE_PASS audit</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">FORCE_PASS audit</a>
+  <nav>
+    {% for key, href, label in [("dashboard", "/", "Dashboard"), ("builds", "/builds", "Builds"), ("jobs", "/jobs", "Jobs"), ("runs", "/runs", "Runs")] %}
+      <a href="{{ href }}" {% if active == key %}class="active" aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if last_run %}
+    <a class="last-run" href="/runs" title="Latest collection run">
+      <span class="badge status-{{ last_run.status }}">{{ last_run.status }}</span>
+      last run {{ last_run.started_at | iso }}
+    </a>
+  {% endif %}
+</header>
+<main>
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

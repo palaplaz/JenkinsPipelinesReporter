@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<section class="kpis">
+  <div class="kpi"><div class="kpi-value">{{ kpis.last_7d }}</div><div class="kpi-label">Force passes, last 7 days</div></div>
+  <div class="kpi"><div class="kpi-value">{{ kpis.last_30d }}</div><div class="kpi-label">Force passes, last 30 days</div></div>
+  <div class="kpi"><div class="kpi-value">{{ kpis.all_time }}</div><div class="kpi-label">Force passes, all time</div></div>
+  <div class="kpi">
+    <div class="kpi-value">{{ kpis.ratio | pct }}</div>
+    <div class="kpi-label">of builds with {{ "{:,}".format(kpis.true_total + kpis.false_total) }} FORCE_PASS set used true</div>
+  </div>
+  {% if kpis.running %}
+  <div class="kpi"><div class="kpi-value">{{ kpis.running }}</div><div class="kpi-label"><a href="/builds?result=RUNNING">still running at last collection</a></div></div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Force passes per week <span class="muted">(last {{ chart.bars | length }} weeks)</span></h2>
+  {% if chart.peak == 0 %}
+    <p class="muted">No force passes in this period.</p>
+  {% else %}
+  <svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height + 20 }}" role="img" aria-label="Force passes per week">
+    <line class="axis" x1="0" y1="{{ chart.height }}" x2="{{ chart.width }}" y2="{{ chart.height }}"/>
+    {% for bar in chart.bars %}
+      <g>
+        <title>Week of {{ bar.week.isoformat() }}: {{ bar.count }}</title>
+        <rect class="hit" x="{{ bar.x - 2 }}" y="0" width="{{ chart.bar_width + 4 }}" height="{{ chart.height }}"/>
+        <rect class="bar" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ chart.bar_width }}" height="{{ bar.height }}" rx="2"/>
+        {% if bar.count %}<text class="value" x="{{ bar.x + chart.bar_width / 2 }}" y="{{ bar.y - 4 }}">{{ bar.count }}</text>{% endif %}
+        {% if bar.label %}<text class="label" x="{{ bar.x }}" y="{{ chart.height + 14 }}">{{ bar.label }}</text>{% endif %}
+      </g>
+    {% endfor %}
+  </svg>
+  {% endif %}
+</section>
+
+<div class="period-switch">
+  Top lists for:
+  {% for p in periods %}
+    <a href="/?period={{ p }}" {% if p == period %}class="active" aria-current="true"{% endif %}>{{ "all time" if p == "all" else p }}</a>
+  {% endfor %}
+</div>
+
+<div class="columns">
+  <section class="card">
+    <h2>Top repositories</h2>
+    {% if top_repositories %}
+    <table>
+      <thead><tr><th>Repository</th><th class="num">Jobs</th><th class="num">Force passes</th></tr></thead>
+      <tbody>
+      {% for r in top_repositories %}
+        <tr>
+          <td><a href="/builds{{ qs({'repo': r.repository}) }}">{{ r.repository | job_name }}</a></td>
+          <td class="num">{{ r.jobs }}</td>
+          <td class="num">{{ r.n }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">No force passes in this period.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Top authors</h2>
+    {% if top_authors %}
+    <table>
+      <thead><tr><th>Author</th><th class="num">Force passes</th></tr></thead>
+      <tbody>
+      {% for a in top_authors %}
+        <tr>
+          <td><a href="/builds?author={{ a.author_id | urlencode }}">{{ a.author_name }}</a>
+            {% if a.author_id != 'SYSTEM/AUTOMATED' %}<span class="muted">{{ a.author_id }}</span>{% endif %}</td>
+          <td class="num">{{ a.n }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">No force passes in this period.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

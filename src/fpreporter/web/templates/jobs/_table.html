@@ -1,0 +1,42 @@
+{% from "_macros.html" import sort_th %}
+{% set by_repo = group == "repository" %}
+{% set noun = "repositor" ~ ("y" if jobs | length == 1 else "ies") if by_repo else "job" ~ ("" if jobs | length == 1 else "s") %}
+<p class="muted">{{ jobs | length }} {{ noun }}</p>
+{% if jobs %}
+<table>
+  <thead>
+    <tr>
+      {% set columns = [("job", "Repository" if by_repo else "Job", false, "")] %}
+      {% if by_repo %}{% set columns = columns + [("jobs", "Jobs", true, "num")] %}{% endif %}
+      {% set columns = columns + [("true", "FORCE_PASS=true", true, "num"), ("false", "FORCE_PASS=false", true, "num"), ("ratio", "True ratio", true, "num"), ("last", "Last force pass", true, "")] %}
+      {% for key, label, default_desc, cls in columns %}
+        {% if key == "jobs" %}
+          <th class="num">{{ label }}</th>
+        {% else %}
+          {% set next_dir = ("asc" if dir != "asc" else "desc") if sort == key else ("desc" if default_desc else "asc") %}
+          {% set params = {"sort": key, "dir": next_dir, "group": group} %}
+          {% if q %}{% set params = dict(params, q=q) %}{% endif %}
+          {{ sort_th(key, label, sort, dir != "asc", "/jobs" ~ qs(params), cls) }}
+        {% endif %}
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td><a href="/builds{{ qs({'repo': j.name} if by_repo else {'job': j.name}) }}">{{ j.name | job_name }}</a></td>
+      {% if by_repo %}<td class="num">{{ j.jobs }}</td>{% endif %}
+      <td class="num">{{ j.true_count }}</td>
+      <td class="num">{{ j.false_count }}</td>
+      <td class="num">
+        <span class="ratio"><span class="ratio-fill" style="width: {{ ((j.ratio or 0) * 100) | round(1) }}%"></span></span>
+        {{ j.ratio | pct }}
+      </td>
+      <td class="nowrap">{{ j.last_force_pass_ms | ms }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">Nothing matches.</p>
+{% endif %}

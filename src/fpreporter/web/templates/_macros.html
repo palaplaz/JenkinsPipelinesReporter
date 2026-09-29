@@ -1,0 +1,16 @@
+{% macro result_badge(result) -%}
+  <span class="badge result-{{ result | lower }}">{{ result }}</span>
+{%- endmacro %}
+
+{% macro jenkins_link(url, label="Open in Jenkins") -%}
+  {% set href = url | jenkins_url %}
+  {% if href %}<a href="{{ href }}" target="_blank" rel="noopener noreferrer">{{ label }} ↗</a>{% else %}<span class="muted">{{ url or "–" }}</span>{% endif %}
+{%- endmacro %}
+
+{# Sortable column header; `href` is the URL that applies this column's next sort order. #}
+{% macro sort_th(key, label, current, desc, href, cls="") -%}
+  {% set is_current = current == key %}
+  <th class="{{ cls }}" {% if is_current %}aria-sort="{{ 'descending' if desc else 'ascending' }}"{% endif %}>
+    <a href="{{ href }}">{{ label }}{% if is_current %}<span class="arrow">{{ '▼' if desc else '▲' }}</span>{% endif %}</a>
+  </th>
+{%- endmacro %}

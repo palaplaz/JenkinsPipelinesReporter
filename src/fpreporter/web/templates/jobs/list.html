@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Jobs{% endblock %}
+{% block content %}
+<h1>Jobs</h1>
+<p class="muted">
+  Every job that had builds with FORCE_PASS set, since collection started.
+  By repository, merge/pull request jobs (<code>…/MR-123</code>, <code>…/PR-45</code>) are combined under their project.
+</p>
+
+<div class="period-switch">
+  Group by:
+  {% for key, label in [("repository", "repository"), ("job", "job")] %}
+    <a href="/jobs{{ qs({'q': q, 'group': key} if q else {'group': key}) }}" {% if group == key %}class="active" aria-current="true"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</div>
+
+<form class="filters" action="/jobs" method="get"
+      hx-get="/jobs" hx-target="#jobs-table" hx-indicator="#jobs-table" hx-push-url="true"
+      hx-trigger="input delay:300ms">
+  <label>{{ "Repository" if group == "repository" else "Job" }} <input type="search" name="q" value="{{ q }}" placeholder="contains…"></label>
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ dir }}">
+  <input type="hidden" name="group" value="{{ group }}">
+  <noscript><button type="submit">Apply</button></noscript>
+</form>
+
+<div id="jobs-table">
+  {% include "jobs/_table.html" %}
+</div>
+{% endblock %}

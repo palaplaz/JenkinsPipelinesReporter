@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Builds{% endblock %}
+{% block content %}
+<h1>Force-pass builds</h1>
+
+{# Filters update the results live via htmx; sorting and paging are plain links. #}
+<form id="filters" class="filters" action="/builds" method="get"
+      hx-get="/builds" hx-target="#results" hx-indicator="#results" hx-push-url="true"
+      hx-trigger="input delay:300ms, change">
+  <label>Job <input type="search" name="job" value="{{ f.job }}" placeholder="contains…"></label>
+  <label>Author <input type="search" name="author" value="{{ f.author }}" placeholder="id or name…"></label>
+  <label>Reason <input type="search" name="reason" value="{{ f.reason }}" placeholder="contains…"></label>
+  <label>Result
+    <select name="result">
+      <option value="">any</option>
+      {% for r in results %}<option {% if r == f.result %}selected{% endif %}>{{ r }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>From <input type="date" name="from" value="{{ f.date_from.isoformat() if f.date_from else '' }}"></label>
+  <label>To <input type="date" name="to" value="{{ f.date_to.isoformat() if f.date_to else '' }}"></label>
+  {% for key, value in f.to_query().items() if key in ("sort", "dir", "run", "repo") %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+  {% endfor %}
+  {% if f.repo %}
+    <span class="chip">Repository {{ f.repo | job_name }} <a href="/builds{{ qs(f.to_query(repo='', page=1)) }}" title="Remove repository filter">✕</a></span>
+  {% endif %}
+  {% if f.run is not none %}
+    <span class="chip">First seen in run #{{ f.run }} <a href="/builds{{ qs(f.to_query(run=None, page=1)) }}" title="Remove run filter">✕</a></span>
+  {% endif %}
+  <noscript><button type="submit">Apply</button></noscript>
+  <a class="reset" href="/builds">Reset</a>
+</form>
+
+<div id="results">
+  {% include "builds/_results.html" %}
+</div>
+{% endblock %}
