@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from fpreporter import cli, db
+from fpreporter.lock import exclusive_lock
 
 
 @pytest.fixture(autouse=True)
@@ -42,6 +43,15 @@ def test_collect_without_credentials_returns_config_error(config, monkeypatch):
     monkeypatch.delenv("JENKINS_USER", raising=False)
     monkeypatch.delenv("JENKINS_TOKEN", raising=False)
     assert cli.main(["--config", str(config), "collect"]) == cli.EXIT_CONFIG_ERROR
+
+
+def test_collect_refuses_to_run_while_another_collection_holds_the_lock(config, tmp_path, monkeypatch):
+    monkeypatch.setenv("JENKINS_USER", "u")
+    monkeypatch.setenv("JENKINS_TOKEN", "t")
+    monkeypatch.setattr(cli.JenkinsClient, "run_script", lambda self, s: pytest.fail("must not contact Jenkins"))
+
+    with exclusive_lock(tmp_path / "data" / cli.LOCK_FILE):
+        assert cli.main(["--config", str(config), "collect"]) == cli.EXIT_ALREADY_RUNNING
 
 
 def test_collect_exit_code_reflects_run_status(config, monkeypatch):

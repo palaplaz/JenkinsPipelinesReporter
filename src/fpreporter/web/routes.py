@@ -6,10 +6,11 @@ import sqlite3
 from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from fpreporter import db
 from fpreporter.web import queries
+from fpreporter.web.launcher import EXIT_MESSAGES
 
 router = APIRouter()
 
@@ -87,8 +88,36 @@ def jobs(
 
 
 @router.get("/runs", response_class=HTMLResponse)
-def runs(request: Request, conn: sqlite3.Connection = Depends(get_conn)):
-    return render(request, conn, "runs.html", "runs", runs=queries.list_runs(conn))
+def runs(request: Request, msg: str = "", conn: sqlite3.Connection = Depends(get_conn)):
+    launcher = request.app.state.launcher
+    run_rows = queries.list_runs(conn)
+    collecting = (launcher is not None and launcher.running) or any(r["status"] == "running" for r in run_rows)
+    exit_code = launcher.last_exit_code if launcher is not None and not collecting else None
+    context = {
+        "runs": run_rows,
+        "retry_enabled": launcher is not None,
+        "collecting": collecting,
+        "exit_message": EXIT_MESSAGES.get(exit_code),
+        "msg": msg,
+    }
+    if is_htmx(request):
+        return request.app.state.templates.TemplateResponse(request, "runs/_table.html", context)
+    return render(request, conn, "runs/list.html", "runs", **context)
+
+
+@router.post("/runs/collect")
+def start_collection(request: Request, conn: sqlite3.Connection = Depends(get_conn)):
+    launcher = request.app.state.launcher
+    if launcher is None:
+        raise HTTPException(status_code=404, detail="Retrying is only available when the UI runs via 'fpreporter serve'")
+    # Reject cross-site form posts: any web page could otherwise POST to this localhost UI.
+    origin = request.headers.get("origin")
+    if origin is not None and origin.rstrip("/") != str(request.base_url).rstrip("/"):
+        raise HTTPException(status_code=403, detail="Cross-site request rejected")
+
+    already_running = any(r["status"] == "running" for r in queries.list_runs(conn))
+    started = not already_running and launcher.start()
+    return RedirectResponse(f"/runs?msg={'started' if started else 'busy'}", status_code=303)
 
 
 # Wide aspect ratio (~6:1) so the SVG fills the card width without letterboxing.

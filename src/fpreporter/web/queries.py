@@ -107,7 +107,18 @@ def last_run(conn: sqlite3.Connection) -> dict | None:
 
 
 def list_runs(conn: sqlite3.Connection) -> list[dict]:
-    return [dict(r) for r in conn.execute("SELECT * FROM collection_runs ORDER BY id DESC")]
+    """All runs, newest first. `covered_by` is the first later successful run, which also collected
+    a failed run's window (a failed run never advances the watermark)."""
+    return [
+        dict(r)
+        for r in conn.execute(
+            """
+            SELECT r.*,
+                   (SELECT MIN(o.id) FROM collection_runs o WHERE o.id > r.id AND o.status = 'ok') AS covered_by
+            FROM collection_runs r ORDER BY r.id DESC
+            """
+        )
+    ]
 
 
 # ---------------------------------------------------------------- builds

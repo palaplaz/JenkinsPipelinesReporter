@@ -145,6 +145,26 @@ td.reason { min-width: 240px; max-width: 420px; }
 /* htmx puts .htmx-request on the hx-indicator element while a request is in flight. */
 #results.htmx-request, #jobs-table.htmx-request { opacity: .6; transition: opacity .2s; }
 
+/* ---- notices and retry */
+.notice { padding: .6rem .9rem; border-radius: 8px; margin: 0 0 1rem; display: flex; align-items: center; gap: .6rem; }
+.notice.info { background: var(--info-bg); color: var(--info); }
+.notice.warn { background: var(--warn-bg); color: var(--warn); }
+.notice.error { background: var(--bad-bg); color: var(--bad); }
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+form.inline { display: inline; margin-left: .4rem; }
+button.retry {
+  font: inherit; font-size: .8em; font-weight: 600; cursor: pointer;
+  padding: .1rem .6rem; border-radius: 6px;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid transparent;
+}
+button.retry:hover { border-color: var(--accent); }
+button.retry:disabled { opacity: .5; cursor: default; }
+
 .pager { display: flex; gap: 1rem; justify-content: center; align-items: center; margin: 1rem 0; color: var(--muted); }
 .empty { padding: 2rem; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: 10px; }
 

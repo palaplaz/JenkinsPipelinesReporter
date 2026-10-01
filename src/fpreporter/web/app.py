@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fpreporter import db
 from fpreporter.web import queries, routes
+from fpreporter.web.launcher import CollectorLauncher
 
 WEB_DIR = Path(__file__).parent
 
@@ -23,11 +24,14 @@ def create_app(
     db_path: str | Path,
     jenkins_url: str = "",
     reason_parameter: str = queries.DEFAULT_REASON_PARAMETER,
+    launcher: CollectorLauncher | None = None,
 ) -> FastAPI:
+    """`launcher` enables the Retry button on failed runs; without it the UI is purely read-only."""
     # No OpenAPI/docs pages: this is a UI, not an API.
     app = FastAPI(title="FORCE_PASS audit", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.db_path = Path(db_path)
     app.state.reason_parameter = reason_parameter
+    app.state.launcher = launcher
     app.state.templates = _templates(jenkins_url.rstrip("/"))
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
     app.include_router(routes.router)

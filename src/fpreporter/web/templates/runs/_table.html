@@ -1,0 +1,59 @@
+{# Polls itself every 2 s while a collection is running and stops once it has finished. #}
+<div id="runs-table" {% if collecting %}hx-get="/runs" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% if collecting %}
+    <p class="notice info"><span class="spinner" aria-hidden="true"></span> Collection in progress… this page updates when it finishes.</p>
+  {% elif exit_message %}
+    <p class="notice error">{{ exit_message }}</p>
+  {% elif msg == "busy" %}
+    <p class="notice warn">A collection is already running; no new one was started.</p>
+  {% endif %}
+
+  {% if runs %}
+  <table>
+    <thead>
+      <tr>
+        <th class="num">Run</th><th>Started</th><th>Finished</th><th>Status</th><th>Window (build start times)</th>
+        <th class="num">True</th><th class="num">False</th><th class="num">Added</th><th class="num">Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td class="num">#{{ r.id }}</td>
+        <td class="nowrap">{{ r.started_at | iso }}</td>
+        <td class="nowrap">{{ r.finished_at | iso }}</td>
+        <td class="nowrap">
+          <span class="badge status-{{ r.status }}">{{ r.status }}</span>
+          {% if r.status == "failed" %}
+            {% if r.covered_by %}
+              <span class="muted" title="Run #{{ r.covered_by }} collected this run's window">covered by #{{ r.covered_by }}</span>
+            {% elif retry_enabled %}
+              <form class="inline" method="post" action="/runs/collect">
+                <button type="submit" class="retry" {% if collecting %}disabled{% endif %}>Retry</button>
+              </form>
+            {% endif %}
+          {% endif %}
+        </td>
+        <td class="nowrap">
+          {{ "beginning" if r.window_start_ms == 0 else (r.window_start_ms | ms) }} → {{ r.window_end_ms | ms }}
+        </td>
+        <td class="num">{{ r.total_true if r.total_true is not none else "–" }}</td>
+        <td class="num">{{ r.total_false if r.total_false is not none else "–" }}</td>
+        <td class="num">
+          {% if r.builds_added %}<a href="/builds?run={{ r.id }}">{{ r.builds_added }}</a>{% else %}{{ r.builds_added if r.builds_added is not none else "–" }}{% endif %}
+        </td>
+        <td class="num">{{ r.builds_updated if r.builds_updated is not none else "–" }}</td>
+      </tr>
+      {% if r.error %}
+      <tr class="error-row">
+        <td></td>
+        <td colspan="8"><details><summary>Error</summary><pre>{{ r.error }}</pre></details></td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No collection runs yet. Run <code>fpreporter collect</code>.</p>
+  {% endif %}
+</div>

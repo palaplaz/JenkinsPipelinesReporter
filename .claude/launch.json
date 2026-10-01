@@ -4,8 +4,8 @@
     {
       "name": "fpreporter-ui",
       "runtimeExecutable": ".venv\\Scripts\\fpreporter.exe",
-      "runtimeArgs": ["serve", "--port", "8765"],
-      "port": 8765
+      "runtimeArgs": ["serve", "--port", "8766"],
+      "port": 8766
     }
   ]
 }

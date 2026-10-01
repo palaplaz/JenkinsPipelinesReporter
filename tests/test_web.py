@@ -255,6 +255,87 @@ def test_repository_pages(db_path, client):
     assert "Top repositories" in client.get("/?period=all").text
 
 
+# ---------------------------------------------------------------- retry
+
+class FakeLauncher:
+    def __init__(self, running=False, last_exit_code=None):
+        self.running = running
+        self.last_exit_code = last_exit_code
+        self.starts = 0
+
+    def start(self):
+        if self.running:
+            return False
+        self.starts += 1
+        self.running = True
+        return True
+
+
+@pytest.fixture
+def launcher():
+    return FakeLauncher()
+
+
+@pytest.fixture
+def retry_client(db_path, launcher):
+    return TestClient(create_app(db_path, launcher=launcher), follow_redirects=False)
+
+
+def test_retry_button_shown_for_uncovered_failed_run(retry_client):
+    body = retry_client.get("/runs").text
+    assert body.count('action="/runs/collect"') == 1  # only run #2 failed
+    assert "hx-trigger" not in body                     # nothing running, no polling
+
+
+def test_failed_run_covered_by_later_success_has_no_retry(db_path, retry_client):
+    conn = db.connect(db_path)
+    conn.execute(
+        "INSERT INTO collection_runs (id, started_at, status, window_start_ms, window_end_ms) "
+        "VALUES (3, '2026-09-30T13:00:00Z', 'ok', 0, 1)"
+    )
+    conn.close()
+    body = retry_client.get("/runs").text
+    assert 'action="/runs/collect"' not in body
+    assert "covered by #3" in body
+
+
+def test_no_retry_without_launcher(client):
+    assert 'action="/runs/collect"' not in client.get("/runs").text
+    assert client.post("/runs/collect").status_code == 404
+
+
+def test_retry_starts_collector_and_page_polls(retry_client, launcher):
+    response = retry_client.post("/runs/collect", headers={"Origin": "http://testserver"})
+    assert response.status_code == 303
+    assert response.headers["location"] == "/runs?msg=started"
+    assert launcher.starts == 1
+
+    page = retry_client.get("/runs?msg=started").text
+    assert 'hx-trigger="every 2s"' in page
+    assert "Collection in progress" in page
+    assert "disabled" in page  # Retry button disabled while running
+
+
+def test_retry_while_running_does_not_start_another(retry_client, launcher):
+    launcher.running = True
+    response = retry_client.post("/runs/collect")
+    assert response.headers["location"] == "/runs?msg=busy"
+    assert launcher.starts == 0
+
+
+def test_retry_rejects_cross_site_post(retry_client, launcher):
+    response = retry_client.post("/runs/collect", headers={"Origin": "https://evil.example"})
+    assert response.status_code == 403
+    assert launcher.starts == 0
+
+
+def test_polling_stops_and_shows_config_error(retry_client, launcher):
+    launcher.last_exit_code = 2
+    partial = retry_client.get("/runs", headers={"HX-Request": "true"}).text
+    assert "hx-trigger" not in partial
+    assert "configuration error" in partial
+
+
 def test_missing_database_shows_error_page(tmp_path):
     client = TestClient(create_app(tmp_path / "missing.sqlite"))
     response = client.get("/")

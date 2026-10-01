@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+{% block content %}
+<h1>Collection runs</h1>
+<p class="muted">
+  Each run collects the builds started in its window. A failed run stores nothing; the next successful run
+  (scheduled or retried) collects its window as well.
+</p>
+
+{% include "runs/_table.html" %}
+{% endblock %}
