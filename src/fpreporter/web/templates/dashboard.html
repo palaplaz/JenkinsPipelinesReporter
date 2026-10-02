@@ -17,16 +17,24 @@
 </section>
 
 <section class="card">
-  <h2>Force passes per week <span class="muted">(last {{ chart.bars | length }} weeks)</span></h2>
+  {% set unit = "day" if res == "day" else "week" %}
+  <div class="card-header">
+    <h2>Force passes per {{ unit }} <span class="muted">(last {{ chart.bars | length }} {{ unit }}s)</span></h2>
+    <div class="period-switch">
+      {% for key, label in [("day", "Daily"), ("week", "Weekly")] %}
+        <a href="/{{ qs({'res': key, 'period': period}) }}" {% if res == key %}class="active" aria-current="true"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div>
   {% if chart.peak == 0 %}
     <p class="muted">No force passes in this period.</p>
   {% else %}
-  <svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height + 20 }}" role="img" aria-label="Force passes per week">
+  <svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height + 20 }}" role="img" aria-label="Force passes per {{ unit }}">
     <line class="axis" x1="0" y1="{{ chart.height }}" x2="{{ chart.width }}" y2="{{ chart.height }}"/>
     {% for bar in chart.bars %}
       <g>
-        <title>Week of {{ bar.week.isoformat() }}: {{ bar.count }}</title>
-        <rect class="hit" x="{{ bar.x - 2 }}" y="0" width="{{ chart.bar_width + 4 }}" height="{{ chart.height }}"/>
+        <title>{{ "Week of " if unit == "week" else "" }}{{ bar.start.strftime("%a %d %b %Y") }}: {{ bar.count }}</title>
+        <rect class="hit" x="{{ bar.x - chart.gap / 2 }}" y="0" width="{{ chart.bar_width + chart.gap }}" height="{{ chart.height }}"/>
         <rect class="bar" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ chart.bar_width }}" height="{{ bar.height }}" rx="2"/>
         {% if bar.count %}<text class="value" x="{{ bar.x + chart.bar_width / 2 }}" y="{{ bar.y - 4 }}">{{ bar.count }}</text>{% endif %}
         {% if bar.label %}<text class="label" x="{{ bar.x }}" y="{{ chart.height + 14 }}">{{ bar.label }}</text>{% endif %}
@@ -39,7 +47,7 @@
 <div class="period-switch">
   Top lists for:
   {% for p in periods %}
-    <a href="/?period={{ p }}" {% if p == period %}class="active" aria-current="true"{% endif %}>{{ "all time" if p == "all" else p }}</a>
+    <a href="/{{ qs({'period': p, 'res': res}) }}" {% if p == period %}class="active" aria-current="true"{% endif %}>{{ "all time" if p == "all" else p }}</a>
   {% endfor %}
 </div>
 

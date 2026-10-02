@@ -34,15 +34,26 @@ def is_htmx(request: Request) -> bool:
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, period: str = queries.DEFAULT_PERIOD, conn: sqlite3.Connection = Depends(get_conn)):
+def dashboard(
+    request: Request,
+    period: str = queries.DEFAULT_PERIOD,
+    res: str = queries.DEFAULT_RESOLUTION,
+    conn: sqlite3.Connection = Depends(get_conn),
+):
     if period not in queries.PERIODS:
         period = queries.DEFAULT_PERIOD
+    if res not in queries.CHART_RESOLUTIONS:
+        res = queries.DEFAULT_RESOLUTION
     since = queries.period_start_ms(period)
-    weekly = queries.weekly_force_passes(conn)
+    if res == "day":
+        chart = _bar_chart(queries.daily_force_passes(conn), label_every=7)
+    else:
+        chart = _bar_chart(queries.weekly_force_passes(conn), label_every=4)
     return render(
         request, conn, "dashboard.html", "dashboard",
         kpis=queries.kpis(conn),
-        chart=_bar_chart(weekly),
+        chart=chart,
+        res=res,
         period=period,
         periods=list(queries.PERIODS),
         top_repositories=queries.top_repositories(conn, since),
@@ -120,28 +131,32 @@ def start_collection(request: Request, conn: sqlite3.Connection = Depends(get_co
     return RedirectResponse(f"/runs?msg={'started' if started else 'busy'}", status_code=303)
 
 
-# Wide aspect ratio (~6:1) so the SVG fills the card width without letterboxing.
-CHART_BAR_WIDTH = 40
+# Fixed wide aspect ratio (~6:1) so the SVG fills the card width without letterboxing,
+# whatever the number of bars (26 weeks or 30 days).
+CHART_WIDTH = 1040
 CHART_HEIGHT = 160
 
 
-def _bar_chart(weekly: list[dict]) -> dict:
-    """Pre-computes SVG geometry so the template stays simple."""
-    peak = max((w["count"] for w in weekly), default=0)
+def _bar_chart(points: list[dict], label_every: int) -> dict:
+    """Pre-computes SVG geometry so the template stays simple. `points` have `start` and `count`."""
+    peak = max((p["count"] for p in points), default=0)
+    slot = CHART_WIDTH / max(len(points), 1)
+    gap = round(slot * 0.2, 1)
     bars = []
-    for i, w in enumerate(weekly):
-        height = 0 if peak == 0 else round(w["count"] / peak * (CHART_HEIGHT - 20))
+    for i, p in enumerate(points):
+        height = 0 if peak == 0 else round(p["count"] / peak * (CHART_HEIGHT - 20))
         bars.append({
-            **w,
-            "x": i * CHART_BAR_WIDTH + 4,
+            **p,
+            "x": round(i * slot + gap / 2, 1),
             "y": CHART_HEIGHT - height,
             "height": height,
-            "label": w["week"].strftime("%d %b") if i % 4 == 0 else "",
+            "label": p["start"].strftime("%d %b") if i % label_every == 0 else "",
         })
     return {
         "bars": bars,
         "peak": peak,
-        "width": len(weekly) * CHART_BAR_WIDTH,
+        "width": CHART_WIDTH,
         "height": CHART_HEIGHT,
-        "bar_width": CHART_BAR_WIDTH - 8,
+        "bar_width": round(slot - gap, 1),
+        "gap": gap,
     }

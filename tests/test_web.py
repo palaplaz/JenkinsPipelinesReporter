@@ -384,11 +384,63 @@ def test_page_beyond_last_is_clamped(conn):
 
 def test_weekly_force_passes_buckets_by_monday(conn):
     weeks = queries.weekly_force_passes(conn, weeks=3, today=date(2026, 9, 10))  # a Thursday
-    assert [(w["week"], w["count"]) for w in weeks] == [
+    assert [(w["start"], w["count"]) for w in weeks] == [
         (date(2026, 8, 24), 0),
         (date(2026, 8, 31), 1),  # Tue 1 Sep
         (date(2026, 9, 7), 2),   # Tue 8 Sep, Wed 9 Sep
     ]
+
+
+def test_daily_force_passes_buckets_by_local_day(conn):
+    days = queries.daily_force_passes(conn, days=4, today=date(2026, 9, 10))
+    assert [(d["start"], d["count"]) for d in days] == [
+        (date(2026, 9, 7), 0),
+        (date(2026, 9, 8), 1),
+        (date(2026, 9, 9), 1),
+        (date(2026, 9, 10), 0),  # today is included
+    ]
+
+
+def test_daily_counts_builds_late_in_the_local_day(db_path, conn):
+    # 23:30 local time must count for that day, not the next one (timezone handling).
+    late = int(datetime(2026, 9, 7, 23, 30).astimezone().timestamp() * 1000)
+    writer = db.connect(db_path)
+    writer.execute(
+        "INSERT INTO force_pass_builds (job_full_name, build_number, result, started_at_ms, url, param_value, "
+        "author_id, author_name, first_seen_run_id, last_updated_run_id) "
+        "VALUES ('late', 1, 'SUCCESS', ?, 'https://j/', 'true', 'a', 'A', 1, 1)",
+        (late,),
+    )
+    writer.close()
+    days = queries.daily_force_passes(conn, days=2, today=date(2026, 9, 8))
+    assert [(d["start"], d["count"]) for d in days] == [(date(2026, 9, 7), 1), (date(2026, 9, 8), 1)]
+
+
+@pytest.mark.parametrize(
+    "query, heading, bars",
+    [("", "Force passes per week", 26), ("?res=week", "Force passes per week", 26),
+     ("?res=day", "Force passes per day", 30), ("?res=bogus", "Force passes per week", 26)],
+)
+def test_dashboard_chart_resolution(db_path, client, query, heading, bars):
+    # Put a force pass inside both windows so the chart (not the empty message) renders.
+    writer = db.connect(db_path)
+    writer.execute(
+        "INSERT INTO force_pass_builds (job_full_name, build_number, result, started_at_ms, url, param_value, "
+        "author_id, author_name, first_seen_run_id, last_updated_run_id) "
+        "VALUES ('recent', 1, 'SUCCESS', ?, 'https://j/', 'true', 'a', 'A', 1, 1)",
+        (queries.days_ago_ms(1),),
+    )
+    writer.close()
+
+    body = client.get(f"/{query}").text
+    assert heading in body
+    assert body.count('class="bar"') == bars
+
+
+def test_dashboard_switches_keep_each_other(client):
+    body = client.get("/?res=day&period=1y").text
+    assert 'href="/?res=week&amp;period=1y"' in body   # resolution switch keeps the period
+    assert 'href="/?period=30d&amp;res=day"' in body   # period switch keeps the resolution
 
 
 def test_top_authors_groups_automated(conn):

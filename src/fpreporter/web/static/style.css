@@ -87,6 +87,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 1.5rem; }
 .chart .value { text-anchor: middle; }
 
 .period-switch { margin: 0 0 1rem; color: var(--muted); }
+.card-header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.card-header .period-switch { margin: 0 0 .75rem; }
 .period-switch a { margin-left: .5rem; padding: .15rem .5rem; border-radius: 5px; }
 .period-switch a.active { background: var(--accent-soft); font-weight: 600; }
 

@@ -309,21 +309,38 @@ def kpis(conn: sqlite3.Connection) -> dict:
     }
 
 
+CHART_RESOLUTIONS = ("week", "day")
+DEFAULT_RESOLUTION = "week"
+
+
 def weekly_force_passes(conn: sqlite3.Connection, weeks: int = 26, today: date | None = None) -> list[dict]:
     """Force passes per local week (Monday start) for the last N weeks, oldest first, gaps filled with 0."""
     today = today or date.today()
     this_monday = today - timedelta(days=today.weekday())
     mondays = [this_monday - timedelta(weeks=i) for i in reversed(range(weeks))]
+    # 'weekday 0' moves to the next Sunday (or stays on one); '-6 days' then lands on that week's Monday.
+    return _count_by(conn, "'weekday 0', '-6 days'", mondays)
+
+
+def daily_force_passes(conn: sqlite3.Connection, days: int = 30, today: date | None = None) -> list[dict]:
+    """Force passes per local calendar day for the last N days (including today), oldest first."""
+    today = today or date.today()
+    return _count_by(conn, None, [today - timedelta(days=i) for i in reversed(range(days))])
+
+
+def _count_by(conn: sqlite3.Connection, date_modifiers: str | None, buckets: list[date]) -> list[dict]:
+    """Counts force passes per bucket; each bucket is the local date the modifiers map a build day to."""
+    modifiers = f", {date_modifiers}" if date_modifiers else ""
     counts = dict(
         conn.execute(
-            """
-            SELECT date(started_at_ms / 1000, 'unixepoch', 'localtime', 'weekday 0', '-6 days') AS week, COUNT(*)
-            FROM force_pass_builds WHERE started_at_ms >= ? GROUP BY week
+            f"""
+            SELECT date(started_at_ms / 1000, 'unixepoch', 'localtime'{modifiers}) AS bucket, COUNT(*)
+            FROM force_pass_builds WHERE started_at_ms >= ? GROUP BY bucket
             """,
-            (local_midnight_ms(mondays[0]),),
+            (local_midnight_ms(buckets[0]),),
         ).fetchall()
     )
-    return [{"week": m, "count": counts.get(m.isoformat(), 0)} for m in mondays]
+    return [{"start": b, "count": counts.get(b.isoformat(), 0)} for b in buckets]
 
 
 def top_repositories(conn: sqlite3.Connection, since_ms: int, limit: int = 10) -> list[dict]:
